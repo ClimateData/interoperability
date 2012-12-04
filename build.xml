@@ -1,0 +1,40 @@
+<project name="Climate.gov DI Pilot Project" default="make-war" basedir=".">
+  <description>
+    Climate.gov Data Interoperability Project
+  </description>  
+  
+  <property name="app.name" value="cpodi"/>
+  <property name="warfile" value="cpodi.war" />
+
+    <!-- environment variables -->
+  <property environment="env"/>
+  
+<!-- ******* init (create build dir) ******************** -->
+  
+  
+<!-- ******* make-war (builds warfile) *********** -->
+
+  <target name="make-war" description="make ${warfile} file">
+
+    <delete dir="war"/>
+    <mkdir dir="war"/>
+
+    <copy todir="war">
+      <fileset dir="WebContent">
+      </fileset>
+    </copy>
+
+    <jar jarfile="${warfile}" basedir="war"/>
+
+  </target> 
+  
+
+  <!-- **************************** CLEAN (cleans out transient build files) ************************ -->
+
+    <target name="clean" description="cleans out transient build files">
+      <delete file="${warfile}" />
+      <delete dir="war" />
+    </target>
+
+</project>  
+
