@@ -102,6 +102,7 @@ $(document).ready(function() {
 	$( "#download-message" ).dialog({
 		modal: true,
 		autoOpen: false,
+		width: 500,
 		buttons: {
 			Ok: function() {
 				$( this ).dialog( "close" );
