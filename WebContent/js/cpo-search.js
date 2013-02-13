@@ -1,20 +1,22 @@
 /* cpo-search.js
-*  created 2012.11.06 by jebb.q.stewart@noaa.gov
-*  
-*  Created for Climate.gov Data Interoperability Pilot Project web page
-*  Main search functionality
-* 
-*  history:
-*  2012.11.06 Initial Release (jqs)
-*  2012.11.15 Updated CSW interactivety (jqs)
-*  2012.11.28 Added links to get more details and a load button to eventually load data (jqs)
-*/
+ *  created 2012.11.06 by jebb.q.stewart@noaa.gov
+ *  
+ *  Created for Climate.gov Data Interoperability Pilot Project web page
+ *  Main search functionality
+ * 
+ *  history:
+ *  2012.11.06 Initial Release (jqs)
+ *  2012.11.15 Updated CSW interactivety (jqs)
+ *  2012.11.28 Added links to get more details and a load button to eventually load data (jqs)
+ *  2012.02.12 Added loading dialog to give feedback to user (jqs)
+ */
 
 var start = 1;
 var num_of_results = 5;
 var abstract_cutoff = 300;
 var ellipse = "...";
-var geoportal_server = "http://neis.fragileearthstudios.com/geoportal";
+//var geoportal_server = "http://fxnet-dev3:8080/geoportal12/csw";
+var geoportal_server = "http://gis.ncdc.noaa.gov/ncpinterop/csw202/discovery";
 
 $(document).ready(function() {
 
@@ -25,6 +27,7 @@ $(document).ready(function() {
 		height: 400,
 		minWidth: 500,
 		minHeight: 400,
+		position: { my: 'left top', at: 'right top', of: '#map' }
 	});
 	$("#results").accordion({
 		collapsible: true,
@@ -63,12 +66,158 @@ $(document).ready(function() {
 
 });
 
-function load_data(link, type){
-	alert("Loading data is disabled in this release. Coming Soon!");
+function get_links(details_url){
+	
+	$.ajax({
+		type : "GET",
+		url : details_url,
+		dataType : "xml",
+		success : function(xml) {
+			parse_xml_iso_record(xml);
+		}
+	});
 }
+
+var record_count = 0;
+
+function parse_xml_iso_record(xml){
+	
+	
+	var details_link = "";
+	var wms_data_link = "";
+	var wfs_data_link = "";
+	var wcs_data_link = "";
+	var esri_rest_data_link = "";
+	
+	var $xml = $(xml);
+	
+	details_link = xml.URL;
+	var info = $xml.find('MD_DataIdentification');
+	var file_id = $xml.find('fileIdentifier').text().trim();
+	if ( file_id != "nhc_hurr_pts" ) {
+	//var var_id = $xml.find('fileIdentifier').text().trim();
+	var title = info.find('title').first().text().trim();
+	var abs = info.find('abstract').first().text().trim();
+	
+	var text = "<h3>" + title + "</h3>\n";
+	var abstract_text = abs;
+	if (abstract_text.length > abstract_cutoff) {
+		abstract_text = abstract_text.substring(0, abstract_cutoff) + ellipse;
+	}
+	var details_text = '<p id="details">' + abstract_text + '</p>' ; 
+
+	// Find the various links for data and more information
+
+	$xml.find('SV_ServiceIdentification').each(function(index) {
+		
+		var type = $(this).attr("id");
+		var md_service = $(this).find('SV_OperationMetadata');
+		var url = md_service.find('URL').text().trim();
+		
+		
+		if (type.toUpperCase().indexOf("WFS") > 0 || url.toUpperCase().indexOf("/WFS?") > 0 ){
+			wfs_data_link = url;
+		}
+		else if ( type.toUpperCase().indexOf("WMS") > 0 || url.toUpperCase().indexOf("/WMS?") > 0 ){
+			wms_data_link = url;
+		} 
+		else if ( type.toUpperCase().indexOf("WCS") > 0 || url.toUpperCase().indexOf("/WCS?") > 0 ){
+			wcs_data_link = url;
+		} else if ( type.toUpperCase().indexOf("ARCGIS-REST") > 0 || url.toUpperCase().indexOf("ARCGIS/REST") > 0 ) {
+			esri_rest_data_link = url;
+		}		
+		//alert(type + " " + url);
+	});
+	
+	var var_info = {};
+	var variables = new Array();
+	$xml.find('MI_CoverageDescription').find('dimension').each(function(index){
+		var variable = $(this).find('MD_Band').find('MemberName').find('aName').first().text().trim();
+	    var description = $(this).find('MD_Band').find('decsriptor').find('CharacterString').text().trim();
+	    var_info[variable] = description;
+	    variables.push(variable);
+	});
+	
+	var var_id = variables[0];
+	
+	if ( wms_data_link.indexOf("erddap") > 0 ) { 
+		var_id = file_id + ":" + var_id;
+	}
+
+
+
+//	Create the buttons for links to more details and to load data
+	var linktext = '<p id="item-tools">';
+	linktext = linktext + '<button id="details-' + record_count + '">Details</button>';
+	if ( wms_data_link != "" ) {
+		linktext = linktext +  '<button id="load-data-' + record_count + '">Load</button>';	
+	}
+	else if ( wfs_data_link != "" ) {
+		linktext = linktext +  '<button id="load-data-' + record_count + '">Load</button>';
+	} 
+	else if ( wcs_data_link != "" ) {
+		linktext = linktext +  '<button id="load-data-' + record_count + '">Load</button>';
+	} else if ( esri_rest_data_link != "" ) {
+		linktext = linktext +  '<button id="load-data-' + record_count + '">Load</button>';
+	}
+
+
+	linktext = linktext + '</p>';
+	text = text + '<div id="div_details">' + linktext + details_text + '</div>';
+	$( "#results").append(text);
+
+//	Add functions to buttons
+	$("#details-" + record_count).click(function(){ 
+		window.open(details_link, '_info', '');
+		return false;
+	});
+//	+ details_link + '" target="_info">details</a>';
+	if ( wms_data_link != "" ) {
+		(function(j, ln, t) {
+			$("#load-data-" + record_count).click(function(){ 
+				load_data(j, "wms", ln, t);
+			});
+		})(wms_data_link, var_id, title);
+	}
+	else if ( wfs_data_link != "" ) {
+		(function(j, ln, t) {
+			$("#load-data-" + record_count).click(function(){ 
+				load_data(j, "wfs", ln, t);
+			});
+		})(wfs_data_link, var_id, title);//(wfs_data_link, var_id, title);
+	} 
+	else if ( wcs_data_link != "" ) {
+		(function(j, ln, t) {
+			$("#load-data-" + record_count).click(function(){
+				load_data(j, "wcs", ln, t);
+			});
+		})(wcs_data_link, var_id, title);
+	} else if ( esri_rest_data_link != "" ) {
+		(function(j, ln, t) {
+			$("#load-data-" + record_count).click(function(){
+				load_data(j, "esri_rest", ln, t);
+			});
+		})(esri_rest_data_link, var_id, title);
+	}
+	
+	$("#results").accordion( "destroy" );
+	//Reset the JQuery Accordion				
+	$("#results").accordion({
+		collapsible: true,
+		active: false,
+		heightStyle: "fill"
+	});	
+	
+	record_count++;
+	}
+}
+
+
+
 
 function search(start, num_of_results) {
 
+	record_count = 0;
 	var format = new OpenLayers.Format.CSWGetRecords();
 	var search_text = $("#anytext").val();
 	var filter_bounding_box = "";
@@ -80,12 +229,7 @@ function search(start, num_of_results) {
 			value: "%" + search_text + "%"
 		});
 	}
-	//type: OpenLayers.Filter.Spatial.BBOX,
-
-	//property: "ows:BoundingBox",
-	//value: bbox
-	//});
-
+	
 	var options;
 	if (filter_bounding_box != "" ) {
 		options = {
@@ -120,7 +264,7 @@ function search(start, num_of_results) {
 	}
 
 	var post_data = format.write(options);
-	var server = geoportal_server + "/csw";
+	var server = geoportal_server;
 	var request = new OpenLayers.Request.POST({
 		url: server,
 		data: post_data,
@@ -134,7 +278,7 @@ function search(start, num_of_results) {
 			i = 0;
 			if ( records && records.records && records.records.length > 0 ) {
 				$("#results").empty();
-				$("#results").accordion( "destroy" );
+				//$("#results").accordion( "destroy" );
 				$("#status").empty();
 
 				//Setup the navigation for the pages of results
@@ -172,100 +316,33 @@ function search(start, num_of_results) {
 				}
 
 				//Print the details for each record
-				for ( i = 0 ; i < records.records.length; i++ ) {
-					var text = "<h3>" + records.records[i].title[0].value + "</h3>\n";
-					var abstract_text = records.records[i].abstract[0];
-					if (abstract_text.length > abstract_cutoff) {
-						abstract_text = abstract_text.substring(0, abstract_cutoff) + ellipse;
-					}
-					var details_text = '<p id="details">' + abstract_text + '</p>' ; 
-
-					// Find the various links for data and more information
-					var details_link = "";
-					var wms_data_link = "";
-					var wfs_data_link = "";
-					var wcs_data_link = "";
+				for ( var i = 0 ; i < records.records.length; i++ ) {
 					for ( c = 0 ; c < records.records[i].references.length; c++ ) {
 						if ( records.records[i].references[c].toUpperCase().indexOf("/CSW?") > 0 ){
 							details_link = records.records[i].references[c];
+							get_links(details_link);
+							c = records.records[i].references.length + 10;
 						}
-						else if ( records.records[i].references[c].toUpperCase().indexOf("/WMS?") > 0 ){
-							wms_data_link = records.records[i].references[c];
-						}
-						else if ( records.records[i].references[c].toUpperCase().indexOf("/WCS?") > 0 ){
-							wcs_data_link = records.records[i].references[c];
-						}
-						else if ( records.records[i].references[c].toUpperCase().indexOf("/WFS?") > 0 ){
-							wfs_data_link = records.records[i].references[c];
-						}
-
-					}
-
-					//Create the buttons for links to more details and to load data
-					var linktext = '<p id="item-tools">';
-					linktext = linktext + '<button id="details-' + i + '">Details</button>';
-					if ( wms_data_link != "" ) {
-						linktext = linktext +  '<button id="load-data-' + i + '">Load</button>';	
-					}
-					else if ( wfs_data_link != "" ) {
-						linktext = linktext +  '<button id="load-data-' + i + '">Load</button>';
-					} 
-					else if ( wcs_data_link != "" ) {
-						linktext = linktext +  '<button id="load-data-' + i + '">Load</button>';
-					}
-
-					linktext = linktext + '</p>';
-					text = text + '<div id="div_details">' + linktext + details_text + '</div>';
-					$( "#results").append(text);
-
-					//Add functions to buttons
-					$("#details-" + i).click(function(){ 
-						window.open(details_link, '_info', '');
-						return false;
-					});
-					//+ details_link + '" target="_info">details</a>';
-					if ( wms_data_link != "" ) {
-						(function(j) {
-							$("#load-data-" + i).click(function(){ 
-								load_data(j, "wms");
-							});
-						})(wms_data_link);
-					}
-					else if ( wfs_data_link != "" ) {
-						(function(j) {
-							$("#load-data-" + i).click(function(){ 
-								load_data(j, "wfs");
-							});
-						})(wfs_data_link);
-					} 
-					else if ( wcs_data_link != "" ) {
-						(function(j) {
-							$("#load-data-" + i).click(function(){
-								load_data(j, "wcs");
-							});
-						})(wcs_data_link);
 					}
 				}
 
-				//Reset the JQuery Accordion				
-				$("#results").accordion({
-					collapsible: true,
-					active: false,
-					heightStyle: "fill"
-				});				
 
-				//Uncomment to see full json response
-				//$( "#results").append(JSON.stringify( records));
-			} else if ( records.records.length == 0 ) {
-				//No results are found, tell the user
-				$("#status").empty();
-				$("#results").empty();
-				$("#status").append("No results found!");
+					//Uncomment to see full json response
+					//$( "#results").append(JSON.stringify( records));
+				} else if ( !records || !records.records ) {
+					$("#status").empty();
+					$("#results").empty();
+					$("#status").append("Invalid response returned, unable to access search service!");
+				} else if ( records.records.length == 0 ) {
+					//No results are found, tell the user
+					$("#status").empty();
+					$("#results").empty();
+					$("#status").append("No results found!");
+				}
+			},
+			failure: function (response) {
+				alert("Something went wrong in the request");
 			}
-		},
-		failure: function (response) {
-			alert("Something went wrong in the request");
-		}
-	});
+		});
 	return false;
-}
+	}

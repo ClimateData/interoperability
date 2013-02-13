@@ -9,7 +9,3 @@
 */
 
 $(document).ready(function() {});
-
-function load_data(link, type){
-	alert("Loading data is disabled in this release. Coming Soon!");
-}

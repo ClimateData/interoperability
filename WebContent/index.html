@@ -1,20 +1,19 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Climate.gov Data Interoperability Pilot Project</title>
-<!-- <link rel="stylesheet" href="style.css" type="text/css" />-->
 <script type="text/javascript"
 	src="http://openlayers.org/api/OpenLayers.js"></script>
 <link rel="stylesheet"
 	href="http://code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css" />
-<script src="http://code.jquery.com/jquery-1.8.3.js"></script>
-<script src="http://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>
+<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+<script src="http://code.jquery.com/ui/1.9.2/jquery-ui.min.js"></script>
 <script
 	src='http://maps.google.com/maps?file=api&amp;v=2&amp;key=ABQIAAAAIoZKb9JrajP0IwKLFr335hTsk_juWuwt_LNtOqByAr93uT9HuRTzovVKWJSi3TQGBPsWMWPyWdIQdg'></script>
 <script type="text/javascript" src="js/cpo-main.js"></script>
 <script type="text/javascript" src="js/cpo-map.js"></script>
 <script type="text/javascript" src="js/cpo-data.js"></script>
 <script type="text/javascript" src="js/cpo-search.js"></script>
-<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/style.css"/>
 
 </head>
 <body>
@@ -24,18 +23,29 @@
 	<div id="toolbox">
 
 		<button id="search-dialog-button"></button>
+		<button id="layers-dialog-button"></button>
+		<button id="tools-dialog-button"></button>
 
 	</div>
 	<div id="search-dialog">
-		<input type="text" name="anytext" id="anytext" value="">
+		<input type="text" name="anytext" id="anytext" value=""></input>
 		<button name="search-button" id="search-button">Search</button>
 		<div id="status"></div>
-		<!-- <div id="results-resizer" class="ui-widget-content">-->
 		<div id="results"></div>
+	</div>
+	<div id="layers-dialog">
+		<div id="layers-content"></div>
+	</div>
+	<div id="tools-dialog">
+		<div id="tools-content"></div>
 	</div>
 
 
 	<div id="map"></div>
+	<div id="legend"><b>Legend:</b></div>
+	<div id="loading-message"><center><b>Loading...</b></center></div>
+	<div id="download-message" title="Download Ready"></div>
+
 
 </body>
 </html>
