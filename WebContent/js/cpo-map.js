@@ -63,8 +63,8 @@ $(document).ready(function() {
 
 	var wms = new OpenLayers.Layer.WMS("OpenLayers WMS",
 			"http://vmap0.tiles.osgeo.org/wms/vmap0", {
-				layers : "basic"
-			});
+		layers : "basic"
+	});
 
 	map.addLayer(wms);
 	var point = new OpenLayers.LonLat(-95, 40);
@@ -206,13 +206,13 @@ function updateLayers(){
 		$("#layers-content").append('</p>');
 
 		map.addLayer(map_info.collections[i].layers[0].layer);
-		
+
 		var color_legend = "";
 		if ( map_info.collections[i].type == "esri" ) {
 			color_legend = '<span style="color:purple">------</span>  ';
 		} else if ( map_info.collections[i].type == "wfs") {
 			color_legend = '<span style="color:' + colors[i] + '">------</span>  ';
-		}
+		} 
 		$("#legend").append(i + " :: " + color_legend + map_info.collections[i].name + "<br/>");
 
 	}
@@ -222,10 +222,10 @@ function already_loaded(name){
 	var result = false;
 
 	for ( var i = 0; i < map_info.collections.length; i++){
-	  if ( map_info.collections[i].name == name ) {
-	  	result = true;
-	  	break;
-	  }
+		if ( map_info.collections[i].name == name ) {
+			result = true;
+			break;
+		}
 	}
 	return result;
 }
@@ -333,13 +333,25 @@ function activate_query_tool(active){
 		map.removeControl(draw_control);
 		map.removeLayer(selecting_layer);
 		select_active = false;
+		//TODO: Remove selected areas when requested
+		/*
+		for (var i = 0 ; i < map_info.collections.length; i++){
+			var layer = map_info.collections[i].layers[0].layer;
+			if ( map_info.collections[i].type == "esri" ) {
+
+			} else if ( map_info.collections[i].type == "wfs" ) {
+
+			}
+			else if ( map_info.collections[i].type == "wms" ) {
+
+			}
+		}*/
 	} else {
-		
+
 		map.addLayer(selecting_layer);
 		map.addControl(draw_control);
 		select_active = true;
 		draw_control.activate();
-
 
 		selecting_layer.events.on({
 			beforefeatureadded : function(event) {
@@ -350,14 +362,11 @@ function activate_query_tool(active){
 					var layer = map_info.collections[i].layers[0].layer;
 					if ( map_info.collections[i].type == "esri" ) {
 
-						//var point = new OpenLayers.LonLat(center.x, center.y);
 						var point = new OpenLayers.Geometry.Point(center.x, center.y);
 						point.transform(proj, sm);
 
 						if ( geometry.getVertices().length > 0 ) {
 							var point2 = new OpenLayers.Geometry.Point(geometry.getVertices()[0].x , geometry.getVertices()[0].y);
-							//var point2 = new OpenLayers.LonLat(geometry.getVertices()[0].x , geometry.getVertices()[0].y);
-
 							point2.transform(proj, sm);
 							layer.setLayerFilter(
 									1,
@@ -367,20 +376,23 @@ function activate_query_tool(active){
 								force : true
 							});
 						}
-					} else if ( map_info.collections[i].type == "wfs") {
-
+					} else if ( map_info.collections[i].type == "wfs" ) {
 						layer.filter = new OpenLayers.Filter.Spatial({
 							type : OpenLayers.Filter.Spatial.INTERSECTS,
 							value : event.feature.geometry
 						});
+
 						layer.refresh({
+							force : true
+						});
+					} else if ( map_info.collections[i].type == "wms" ) {
+						layer.addOptions ({maxExtent: event.feature.geometry.getBounds().transform(proj, map.getProjectionObject())});
+						layer.redraw({
 							force : true
 						});
 					}
 				}
-
 				return false;
-
 			}
 		});
 	}
@@ -388,40 +400,43 @@ function activate_query_tool(active){
 
 function export_data(collection, layer){
 	var filename = collection.name.replace(/\s+/ig, "");
-	filename = filename+".csv";
-	//var test = layer;
-	var firstRun = true;
-	var csv = "";
-	var line = "";
-	layer.layer.features.forEach(function(feature){
-		line = "";
-		if ( firstRun ) {
+	var content = "";
+	if ( collection.type = "wfs" ) {
+	    filename = filename+".csv";
+		var firstRun = true;
+		var csv = "";
+		var line = "";
+		layer.layer.features.forEach(function(feature){
+			line = "";
+			if ( firstRun ) {
+				Object.keys(feature.attributes).forEach(function(key){
+					if (line != "" ) {
+						line = line + ", ";
+					}
+					line = line + key;
+				});
+				csv = csv + line + "\n";
+				line = "";
+				firstRun = false;
+			}
+
 			Object.keys(feature.attributes).forEach(function(key){
-				if (line != "" ) {
+				if ( line != "" ) {
 					line = line + ", ";
 				}
-				line = line + key;
+				line = line + feature.attributes[key];
 			});
+
 			csv = csv + line + "\n";
-			line = "";
-			firstRun = false;
-		}
 
-		Object.keys(feature.attributes).forEach(function(key){
-			if ( line != "" ) {
-				line = line + ", ";
-			}
-			line = line + feature.attributes[key];
+
+
 		});
-
-		csv = csv + line + "\n";
-
-
-
-	});
+		content = csv;
+	}
 
 	$("#download-message").html('');
-	$("#download-message").append("<a href='data:text;charset=utf-8,"+encodeURI(csv)+"' download='" + filename + "' >" + filename +"</a>");
+	$("#download-message").append("<a href='data:text;charset=utf-8,"+encodeURI(content)+"' download='" + filename + "' >" + filename +"</a>");
 	$("#download-message").dialog("open");
 }
 function activate_select(collection, layer){
@@ -448,7 +463,7 @@ function activate_select(collection, layer){
 				}
 				alert("selected feature "+response+" on " + collection.name);
 			}
-				},
+		},
 		featureunselected: function(e) {
 			// alert("unselected feature "+e.feature.id+" on Vector Layer 1");
 		}
@@ -468,7 +483,6 @@ function handle_describe_feature_response (response, link, title, name) {
 	var targetNS = "";
 	var targetPrefix = "";
 	var featureName = "";
-	//var SRS = "";
 	var timeField = "";
 
 	var df_reader = new OpenLayers.Format.WFSDescribeFeatureType({ extractAttributes: true});
@@ -489,8 +503,7 @@ function handle_describe_feature_response (response, link, title, name) {
 
 	targetNS = desc.targetNamespace;
 	targetPrefix = desc.targetPrefix;
-	//alert (geom + " : " + targetNS);
-
+	
 	if ( !already_loaded(title)){
 
 		var collection = new layer_collection(title, "wfs");
@@ -501,7 +514,6 @@ function handle_describe_feature_response (response, link, title, name) {
 		var index = map_info.collections.indexOf(collection);
 
 		var layer = new OpenLayers.Layer.Vector("WFS", {
-			//projection: proj,
 			strategies : [ new OpenLayers.Strategy.BBOX() ],
 			protocol : new OpenLayers.Protocol.WFS({
 				url : link,
@@ -513,7 +525,7 @@ function handle_describe_feature_response (response, link, title, name) {
 			}),
 			styleMap: default_styles[index]
 		});
-		
+
 		$("#loading-message").dialog("open");
 
 		var layertmp = new single_layer(layer, [], fields);
@@ -539,7 +551,7 @@ function handleWFS(link, featureName, title){
 			alert("Something went wrong in the request " + response);
 		}
 	});
-	
+
 	$("#loading-message").dialog("open");}
 
 var parseWFSResponse = function (response) {
@@ -553,8 +565,11 @@ var parseWmsCapabilities = function(response, link, title, name) {
 		if ("name" in wmsCapabilities.capability.layers[i]) {
 
 			if ( wmsCapabilities.capability.layers[i].name == name){
-				var currentTimes = wmsCapabilities.capability.layers[i].dimensions['time'].values.toString();
-				var times = parseTimes(currentTimes, link);
+				var times = new Array();
+				if ( currentTimes = wmsCapabilities.capability.layers[i].dimensions['time'] ) {
+					var currentTimes = wmsCapabilities.capability.layers[i].dimensions['time'].values.toString();
+					times = parseTimes(currentTimes, link);
+				} 
 				var style = '';
 				if ( wmsCapabilities.capability.layers[i].styles.length > 0 ){
 					style = wmsCapabilities.capability.layers[i].styles[0].name;
@@ -563,30 +578,49 @@ var parseWmsCapabilities = function(response, link, title, name) {
 				map_info.collections.push(collection);
 
 				for (var t = 0; t< 10; t++){
+					var layertmp;
+					if ( times.length > 0 ) { 
+						var tmpmap = new OpenLayers.Layer.WMS(wmsCapabilities.capability.layers[i].title,
+								link,
+								{
+							layers: wmsCapabilities.capability.layers[i].name,
+							transparent: 'true', styles: style, time: times[times.length-t-1].toISOString() 
+								},
+								{ 
+									buffer:1, 
+									opacity: 0.65, 
+									visibility: 'true',
+									alpha: true,
+									maxExtent: new OpenLayers.Bounds(-100.0,27.0,-70.0,50.0),
+								});
+						layertmp = new single_layer(tmpmap, times[times.length-t-1].toISOString(), []);
+					} else {
+						var tmpmap = new OpenLayers.Layer.WMS(wmsCapabilities.capability.layers[i].title,
+								link,
+								{
+							layers: wmsCapabilities.capability.layers[i].name,
+							transparent: 'true', styles: style 
+								},
+								{ 
+									buffer:1, 
+									opacity: 0.65, 
+									visibility: 'true',
+									alpha: true, 
+								});
+						layertmp = new single_layer(tmpmap, "", []);
 
-					var tmpmap = new OpenLayers.Layer.WMS(wmsCapabilities.capability.layers[i].title,
-							link,
-							{
-						layers: wmsCapabilities.capability.layers[i].name,
-						transparent: 'true', styles: style, time: times[times.length-t-1].toISOString() 
-							},
-							{ 
-								buffer:1, 
-								opacity: 0.65, 
-								visibility: 'true',
-								alpha: true, 
-							});
+					}
 
-					var layertmp = new single_layer(tmpmap, times[times.length-t-1].toISOString(), []);
-
-					collection.layers.push(layertmp);
+					if ( layertmp ) {
+						collection.layers.push(layertmp);
+					}
 				}
 			}
 		}
 	}
 
 	updateLayers();
-	};
+};
 
 function addPeriod(date, period){
 

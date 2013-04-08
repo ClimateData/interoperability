@@ -72,15 +72,16 @@ function get_links(details_url){
 		type : "GET",
 		url : details_url,
 		dataType : "xml",
-		success : function(xml) {
-			parse_xml_iso_record(xml);
-		}
+		success : function(response) { parse_xml_iso_record(response, details_url); }
+		//success : function(xml) {
+		//	parse_xml_iso_record(xml);
+		//}
 	});
 }
 
 var record_count = 0;
 
-function parse_xml_iso_record(xml){
+function parse_xml_iso_record(xml, url){
 	
 	
 	var details_link = "";
@@ -88,10 +89,11 @@ function parse_xml_iso_record(xml){
 	var wfs_data_link = "";
 	var wcs_data_link = "";
 	var esri_rest_data_link = "";
+	var extra_text = "";
 	
 	var $xml = $(xml);
 	
-	details_link = xml.URL;
+	details_link = url;
 	var info = $xml.find('MD_DataIdentification');
 	var file_id = $xml.find('fileIdentifier').text().trim();
 	if ( file_id != "nhc_hurr_pts" ) {
@@ -104,7 +106,7 @@ function parse_xml_iso_record(xml){
 	if (abstract_text.length > abstract_cutoff) {
 		abstract_text = abstract_text.substring(0, abstract_cutoff) + ellipse;
 	}
-	var details_text = '<p id="details">' + abstract_text + '</p>' ; 
+	
 
 	// Find the various links for data and more information
 
@@ -133,7 +135,7 @@ function parse_xml_iso_record(xml){
 	var variables = new Array();
 	$xml.find('MI_CoverageDescription').find('dimension').each(function(index){
 		var variable = $(this).find('MD_Band').find('MemberName').find('aName').first().text().trim();
-	    var description = $(this).find('MD_Band').find('decsriptor').find('CharacterString').text().trim();
+	    var description = $(this).find('MD_Band').find('descriptor').find('CharacterString').text().trim();
 	    var_info[variable] = description;
 	    variables.push(variable);
 	});
@@ -143,6 +145,17 @@ function parse_xml_iso_record(xml){
 	if ( wms_data_link.indexOf("erddap") > 0 ) { 
 		var_id = file_id + ":" + var_id;
 	}
+	
+	if ( wms_data_link != "" ) {
+		extra_text = '<label for="layer-id-' + record_count + '"><b><i>Select a layer to load</i></b>:</label>';
+		extra_text = extra_text + "\n" + '<select id="layer-id-' + record_count + '">';
+		for (var i = 0 ; i < variables.length ; i++ ){
+			extra_text = extra_text + '<option value="' + variables[i] + '">' + var_info[variables[i]] + '</option>\n';
+		}
+		extra_text = extra_text + "\n" + '</select>';
+	}
+	
+	var details_text = '<p id="details">' + abstract_text + '<br />' + extra_text + '</p>' ; 
 
 
 
@@ -171,20 +184,19 @@ function parse_xml_iso_record(xml){
 		window.open(details_link, '_info', '');
 		return false;
 	});
-//	+ details_link + '" target="_info">details</a>';
 	if ( wms_data_link != "" ) {
-		(function(j, ln, t) {
-			$("#load-data-" + record_count).click(function(){ 
-				load_data(j, "wms", ln, t);
+		(function(j, ln, t, r, v) {
+			$("#load-data-" + r).click(function(){ 
+				load_data(j, "wms", $("#layer-id-" + r).val(), t + " : " + v[$("#layer-id-" + r).val()]);
 			});
-		})(wms_data_link, var_id, title);
+		})(wms_data_link, var_id, title, record_count, variables);
 	}
 	else if ( wfs_data_link != "" ) {
 		(function(j, ln, t) {
 			$("#load-data-" + record_count).click(function(){ 
 				load_data(j, "wfs", ln, t);
 			});
-		})(wfs_data_link, var_id, title);//(wfs_data_link, var_id, title);
+		})(wfs_data_link, var_id, title);
 	} 
 	else if ( wcs_data_link != "" ) {
 		(function(j, ln, t) {
